@@ -54,6 +54,8 @@ pub struct ControllerPoses {
     pub tracking_to_world: glam::Mat4,
     /// Monotonic calibration/toggle press counters; retained until the next press.
     pub buttons: [u64; 2],
+    /// Optional left walk / right turn thumbsticks, each valid only with that tracked hand.
+    pub axes: [Option<glam::Vec2>; 2],
     pub generation: u64,
     pub origin: Option<u64>,
     pub revision: u64,
@@ -130,6 +132,11 @@ impl Control {
         for hand in &mut poses.hands {
             if matches!(hand, GripState::Tracked(p) if !p.is_finite()) {
                 *hand = GripState::Untracked;
+            }
+        }
+        for axis in &mut poses.axes {
+            if axis.is_some_and(|v| !v.is_finite()) {
+                *axis = None;
             }
         }
         if let Ok(mut current) = self.controllers.try_lock() {
@@ -236,6 +243,7 @@ mod tests {
             hands: [GripState::Tracked(glam::Vec3::X), GripState::Tracked(glam::Vec3::Y)],
             tracking_to_world: glam::Mat4::IDENTITY,
             buttons: [0; 2],
+            axes: [None; 2],
             generation: 2,
             origin: Some(7),
             revision: 3,

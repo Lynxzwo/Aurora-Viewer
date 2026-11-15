@@ -588,6 +588,8 @@ pub struct App {
     build: crate::build::BuildTool,
     ik_editor: crate::ik_edit::Editor,
     arm_tracking: Option<crate::arm_tracking::Panel>,
+    /// Thumbstick walking, present only with the `AURORA_VR_LOCOMOTION=1` opt-in.
+    xr_walk: Option<crate::xr_locomotion::State>,
     hud_drag: Option<crate::build::hud_drag::HudDrag>,
     interactions: crate::interaction::Interactions,
     cursors: crate::cursors::Cursors,
@@ -1775,6 +1777,7 @@ impl App {
             build: Default::default(),
             ik_editor: Default::default(),
             arm_tracking: crate::arm_tracking::Panel::from_env(),
+            xr_walk: crate::xr_locomotion::State::from_env(),
             hud_drag: None,
             interactions: Default::default(),
             cursors: crate::cursors::Cursors::with_palette(&palette),
@@ -3239,6 +3242,11 @@ impl App {
     }
 
     fn back_to_login(&mut self, error: Option<String>) {
+        // Walking never carries over to the next session: the switch starts off again.
+        if let Some(state) = &mut self.xr_walk {
+            state.set_enabled(false);
+            state.reset();
+        }
         if let Some(panel) = &mut self.arm_tracking
             && panel.is_live()
         {
@@ -4237,6 +4245,9 @@ impl App {
                 }
             }
             NetEvent::AgentMovementComplete { .. } => {
+                if let Some(state) = &mut self.xr_walk {
+                    state.reset();
+                }
                 // An arrival can begin and finish in one event batch, even in
                 // the same region. Never carry a live neutral pose across it.
                 if let Some(panel) = &mut self.arm_tracking
@@ -10388,6 +10399,7 @@ impl App {
         if self.vr_camera.is_some() {
             self.vr_locomotion(vr_body_yaw, dt);
         }
+        self.xr_controller_walk(gfx.renderer.vr_controller_poses());
         if self.demo
             && let Ok(mode) = std::env::var("AURORA_DEMO_GROUNDING")
             && let Some(input) = crate::demo::grounding::scripted_input(&mode, self.frame_count)
@@ -17994,6 +18006,9 @@ impl App {
                         alt: self.alt,
                     },
                 );
+                if let Some(state) = &mut self.xr_walk {
+                    state.show(&ctx, &p);
+                }
                 self.ik_editor.show(&ctx, &p, &self.world, projector);
                 if !self.ik_editor.posing() {
                     if let Some(panel) = &mut self.arm_tracking {
@@ -18123,6 +18138,10 @@ impl App {
                     if let Some(hint) = self.arm_tracking.as_ref().and_then(|p| p.xr_hint()) {
                         text.push('\n');
                         text.push_str(&hint);
+                    }
+                    if self.xr_walk_selected() {
+                        text.push('\n');
+                        text.push_str(aurora_i18n::tr!("vr-walk-hint"));
                     }
                     let at = egui::pos2(ctx.content_rect().center().x, ctx.content_rect().bottom() - 16.0);
                     let font = egui::FontId::proportional(18.0);

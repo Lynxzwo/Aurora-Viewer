@@ -40,6 +40,32 @@ default and meant for people with a headset who want to try it.
 Offline test scenarios (desktop simulation or a headset, no grid) are listed in
 [Testing](TESTING.md) under `AURORA_DEMO_VR_ARMS`.
 
+## Experimental thumbstick walking
+
+The Touch thumbsticks can walk and turn your avatar in the First Person VR view.
+It is off by default.
+
+- **What it does.** The left stick walks and strafes at normal walking speed, in
+  the direction your head faces. The right stick turns the view by 30 degrees; push
+  it again after centring it to turn further. Nothing special is sent to the
+  simulator: the avatar receives the ordinary walk controls.
+- **Turn it on.** Start the viewer with `AURORA_VR_LOCOMOTION=1` and a connected
+  headset (read at startup, because the actions are created with the OpenXR
+  session). A small desktop window opens with the switch off; enable it, then centre
+  both sticks. Closing the window turns walking off again.
+- **While it is on.** In First Person the sticks replace the automatic walking that
+  follows your physical steps, so stepping around the room does not move the
+  avatar. Without the variable that automatic walking is unchanged. Arm tracking is
+  independent and can be used with it or without it.
+- **When it stops.** Walking stops, and both sticks must be centred again, after a
+  lost or unfocused controller, a teleport or region change, logout, and
+  whenever flying, sitting, travelling, pose editing or another walking source takes
+  over.
+- **Limits.** First Person only (not Avatar Mode or Flycam). The dead zone (20%)
+  and the snap angle are fixed. No running, flying or jumping. Tested in the
+  offline demo on Windows with a Quest 3 through Virtual Desktop (VDXR); walking in
+  a live session, other headsets and other runtimes are untested.
+
 ## Platform status
 
 | Platform | Graphics binding | Build/automated evidence | Human headset evidence |

@@ -3668,6 +3668,7 @@ To check with these scenarios:
 | `AURORA_DEMO_ANIMESH_TRIS=<n>` | Triangles added to the demo's rigged mesh |
 | `AURORA_DEMO_HAND_IK=<mode>` | Local or observed motorcycle contacts on linked targets |
 | `AURORA_LIVE_VR_ARMS=1` | Opt-in OpenXR controller arm tracking for your own avatar in a live session (docs/VR.md) |
+| `AURORA_VR_LOCOMOTION=1` | Opt-in OpenXR thumbstick walking and 30-degree snap turns in the First Person VR view, live or in demo mode (docs/VR.md) |
 | `AURORA_DEMO_VR_ARMS=1\|test\|xr` | Offline: wrist targets from a desktop panel or from OpenXR controllers, layered over the avatar's animation |
 | `AURORA_DEMO_IK_EDIT=<mode>` | Local pose/animation editor and target-prim contact export |
 | `AURORA_DEMO_CLOUD=1` | Avatar loading clouds |
@@ -14266,3 +14267,10 @@ controller actions are created with the OpenXR session. The panel starts with
 tracking off; it needs your own ready, logged-in avatar and an explicit
 activation plus neutral capture. Agents must not connect to a grid to test it:
 the human logs in and checks it with a headset (see [VR.md](VR.md#experimental-controller-arm-tracking)).
+
+`AURORA_VR_LOCOMOTION=1`: read at startup, because the thumbstick actions are
+created with the OpenXR session; it works in a live session and in demo mode
+(`AURORA_DEMO=1`, which needs no grid). A desktop window opens with the switch
+off; it only matters in the First Person VR view. Unit tests:
+`cargo test --workspace xr_walk`. Agents must not connect to a grid to test it:
+the human logs in and checks it with a headset (see [VR.md](VR.md#experimental-thumbstick-walking)).

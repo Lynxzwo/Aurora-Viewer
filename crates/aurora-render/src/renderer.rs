@@ -7425,6 +7425,7 @@ impl Backend {
             hands: eyes.hands,
             tracking_to_world: eyes.tracking_to_world,
             buttons: eyes.buttons,
+            axes: eyes.axes,
             generation,
             origin: packet.params.vr_origin,
             revision: packet.params.vr_revision,

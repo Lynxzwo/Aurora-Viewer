@@ -29,6 +29,7 @@ pub(crate) struct Eyes {
     pub hands: [crate::GripState; 2],
     pub tracking_to_world: glam::Mat4,
     pub buttons: [u64; 2],
+    pub axes: [Option<glam::Vec2>; 2],
     pub textures: [wgpu::Texture; 2],
 }
 pub(crate) struct Session {
@@ -562,6 +563,7 @@ impl Session {
             hands,
             tracking_to_world: anchor.tracking_transform(),
             buttons,
+            axes: self.input.as_ref().map_or([None; 2], |input| input.axes),
             textures: [output.remove(0), output.remove(0)],
         }))
     }

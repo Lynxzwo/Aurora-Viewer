@@ -2168,6 +2168,17 @@ and hand motion stay separate. Lost, stale or recentered input never reuses a
 target; a new capture is required. The actions are created only on opt-in; the
 standard VR camera and movement behaviour are unchanged.
 
+`xr_locomotion.rs` (opt-in `AURORA_VR_LOCOMOTION=1`) adds a left walk and a right
+turn thumbstick action to the same set, sampled with the grips: a stick only
+counts while its hand is tracked, and `ControllerPoses.axes` carries it across the
+render/main-thread boundary. The module turns the samples into intentions, with a
+radial dead zone, the eight native walk directions and a 30-degree snap that
+needs the stick centred again. `App::xr_controller_walk` writes the ordinary walk
+controls and adds the snap to the VR rig yaw, and only while First Person VR, the
+own avatar and every tool precedence rule allow it; with the opt-in,
+`vr_update_body_follow` leaves the walking to the sticks in First Person.
+Nothing is sent but the usual movement controls.
+
 `scene/ik.rs` extends the same source protocol to named bones: analytic
 two-segment chains reuse the contact solver, longer ancestor paths use
 bounded CCD, and explicit direct mode converts a target into the bone's

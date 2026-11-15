@@ -153,6 +153,7 @@ mod tests {
             hands: [GripState::Tracked(Vec3::new(1.0, 2.0, 3.0)); 2],
             tracking_to_world: Mat4::IDENTITY,
             buttons: [0; 2],
+            axes: [None; 2],
             generation: 1,
             origin: Some(7),
             revision: 3,

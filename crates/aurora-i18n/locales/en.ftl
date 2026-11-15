@@ -14716,3 +14716,7 @@ vr-arms-xr-off = Arm tracking off
 vr-arms-xr-hint = { $state } · L: { $left } · R: { $right } · A/X: neutral · B/Y: tracking
 
 vr-arms-live-help = Your own avatar's arms follow your controllers. Activate, then capture your neutral pose (X or A). A change of avatar, appearance or region needs a new activation and capture. Local only: other people do not see it.
+vr-walk-title = Experimental VR walking
+vr-walk-enable = Enable thumbstick walking
+vr-walk-help = First Person only: the left stick walks and strafes at normal speed, the right stick turns by 30 degrees. Centre both sticks after enabling or after tracking loss. Independent of arm tracking. Closing this window turns walking off.
+vr-walk-hint = First Person: left stick walks · right stick snaps 30° · centre the sticks to rearm

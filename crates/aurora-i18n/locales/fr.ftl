@@ -14717,3 +14717,7 @@ vr-arms-xr-off = Suivi des bras désactivé
 vr-arms-xr-hint = { $state } · G : { $left } · D : { $right } · A/X : neutre · B/Y : suivi
 
 vr-arms-live-help = Les bras de votre avatar suivent vos manettes. Activez, puis enregistrez votre posture neutre (X ou A). Après un changement d’avatar, d’apparence ou de région, réactivez et enregistrez à nouveau. Local uniquement : les autres ne le voient pas.
+vr-walk-title = Marche VR expérimentale
+vr-walk-enable = Activer la marche au stick
+vr-walk-help = Vue subjective uniquement : le stick gauche fait marcher et se déplacer latéralement à vitesse normale, le stick droit tourne de 30 degrés. Recentrez les deux sticks après l’activation ou une perte du suivi. Indépendant du suivi des bras. Fermer cette fenêtre désactive la marche.
+vr-walk-hint = Vue subjective : stick gauche pour marcher · stick droit pour tourner de 30° · recentrez les sticks pour réarmer

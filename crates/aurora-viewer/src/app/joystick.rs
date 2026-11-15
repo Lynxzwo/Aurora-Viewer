@@ -208,6 +208,57 @@ impl App {
     pub(super) fn vr_rebase_after_travel(&mut self) {
         self.vr_rebase_reference(true);
     }
+    /// The locomotion switch is on (the startup opt-in is already implied by `xr_walk`).
+    pub(super) fn xr_walk_selected(&self) -> bool {
+        self.xr_walk.as_ref().is_some_and(|s| s.enabled())
+    }
+
+    /// Thumbstick walking and snap turning for the First Person VR view. The sticks
+    /// only produce the ordinary walk controls and a rig yaw; every other rule
+    /// (flying, sitting, travel, tools that own the avatar) keeps priority.
+    pub(super) fn xr_controller_walk(&mut self, poses: Option<aurora_render::ControllerPoses>) {
+        // Online, only our own fully loaded avatar may be walked; the offline demo has no login.
+        let own_avatar_ready = self.demo
+            || (self.world.login.as_ref().is_some_and(|l| l.agent_id == self.world.agent_id)
+                && !self.world.agent_id.is_nil()
+                && self.world.objects.index_of_uuid(&self.world.agent_id).is_some());
+        let allowed = own_avatar_ready
+            && !self.scene.ik_edit.active
+            && !self.ik_editor.posing()
+            && !self.scene.pause_all_skeletons
+            && !self.scene.paused_skeletons.contains(&self.world.agent_id)
+            && !self.scene.poser.contains_key(&self.world.agent_id)
+            && self.world.animation_preview_clock.is_none()
+            && self.xr_walk_selected()
+            && self.vr_camera.is_some()
+            && self.vr_mode == Some(crate::camera::VrView::FirstPerson)
+            && self.vr_focused
+            && self.demo_link_cfg.is_none()
+            && !self.world.teleporting
+            && self.world.movement_complete
+            && self.in_world()
+            && !self.world.agent.is_sitting()
+            && !self.world.agent.flying
+            && self.camera.flycam.is_none()
+            && !self.joystick.active
+            && self.autopilot.is_none()
+            && !self.avatar_studio.active
+            && !self.studio_transition.busy()
+            && !self.panels.settings;
+        let Some(state) = &mut self.xr_walk else { return };
+        let motion = state.step(poses.filter(|_| allowed), self.world.main_region, self.vr_revision);
+        if motion.snap != 0.0 {
+            self.vr_rig_yaw += motion.snap;
+        }
+        if motion.walk != glam::Vec2::ZERO || motion.snap != 0.0 {
+            // Walk along the head's heading, whatever the snap turn just did to the rig.
+            self.world.agent.yaw = crate::camera::vr_walk_yaw(self.camera.vr_view(self.vr_rig_yaw), self.vr_head_rotation);
+        }
+        if let Some(input) = motion.input() {
+            self.input = input;
+        }
+    }
+
     pub(super) fn vr_rebase_reference(&mut self, reposition: bool) {
         self.vr_revision = self.vr_revision.wrapping_add(1);
         self.vr_body_follow.rebase();
@@ -217,6 +268,19 @@ impl App {
     }
 
     pub(super) fn vr_update_body_follow(&mut self, typing: bool, dt: f32) {
+        // With the thumbstick opt-in the sticks, not the physical head, walk the
+        // avatar in First Person, even while the switch is unchecked or the sticks
+        // are lost, so releasing them cannot start another walk. Without the opt-in
+        // this function is unchanged.
+        if self.xr_walk.is_some() && self.vr_camera.is_some() && self.vr_mode == Some(crate::camera::VrView::FirstPerson) {
+            self.vr_body_follow.rebase();
+            self.vr_follow_flags = None;
+            let run = self.always_run || self.temp_run.is_some() || self.joystick.running;
+            if let Some(run) = self.vr_walk_override.update(self.xr_walk_selected(), run) {
+                self.send(aurora_net::NetCommand::SetAlwaysRun(run));
+            }
+            return;
+        }
         use crate::camera::VrView;
         let text_input = typing && !self.chat_bar_moves_avatar();
         let travelling = self.world.teleporting || !self.world.movement_complete || !self.in_world();

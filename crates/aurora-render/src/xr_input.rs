@@ -4,13 +4,22 @@
 use crate::{GripState, stereo_view::Anchor};
 use openxr as xr;
 
-pub(crate) fn enabled() -> bool {
+/// Which optional inputs were requested at startup: (arms, thumbstick walking).
+/// The actions are created with the XR session, so they are read once.
+fn requested() -> (bool, bool) {
     let offline = std::env::var("AURORA_DEMO").as_deref() == Ok("1");
-    if offline {
+    let arms = if offline {
         matches!(std::env::var("AURORA_DEMO_VR_ARMS").as_deref(), Ok("1" | "test" | "xr"))
     } else {
         std::env::var("AURORA_LIVE_VR_ARMS").as_deref() == Ok("1")
-    }
+    };
+    let walk = std::env::var("AURORA_VR_LOCOMOTION").as_deref() == Ok("1");
+    (arms, walk)
+}
+
+pub(crate) fn enabled() -> bool {
+    let (arms, walk) = requested();
+    arms || walk
 }
 
 pub(crate) struct Input {
@@ -18,11 +27,15 @@ pub(crate) struct Input {
     grip: xr::Action<xr::Posef>,
     calibrate: xr::Action<bool>,
     toggle: xr::Action<bool>,
+    /// Left walk and right turn thumbsticks, only when locomotion was requested.
+    sticks: Option<[xr::Action<xr::Vector2f>; 2]>,
     set: xr::ActionSet,
     paths: [xr::Path; 2],
     pressed: [bool; 2],
     armed: bool,
     pub buttons: [u64; 2],
+    /// Thumbstick axes, each valid only while that hand's grip is tracked.
+    pub axes: [Option<glam::Vec2>; 2],
 }
 
 impl Input {
@@ -35,6 +48,14 @@ impl Input {
         let grip = set.create_action::<xr::Posef>("hand_grip", "Hand grip pose", &paths)?;
         let calibrate = set.create_action::<bool>("calibrate", "Calibrate neutral pose", &paths)?;
         let toggle = set.create_action::<bool>("tracking_toggle", "Enable or disable arm tracking", &paths)?;
+        let sticks = if requested().1 {
+            Some([
+                set.create_action::<xr::Vector2f>("walk", "Walk and strafe", &paths[..1])?,
+                set.create_action::<xr::Vector2f>("snap_turn", "Snap turn", &paths[1..])?,
+            ])
+        } else {
+            None
+        };
         // Touch Plus is optional; older runtimes expose Quest controllers through Touch.
         // Rejected optional profiles must not prevent the existing VR view from opening.
         let mut bound = false;
@@ -42,7 +63,7 @@ impl Input {
             "/interaction_profiles/oculus/touch_controller",
             "/interaction_profiles/meta/touch_controller_plus",
         ] {
-            let bindings = [
+            let mut bindings = vec![
                 xr::Binding::new(&grip, instance.string_to_path("/user/hand/left/input/grip/pose")?),
                 xr::Binding::new(&grip, instance.string_to_path("/user/hand/right/input/grip/pose")?),
                 xr::Binding::new(&calibrate, instance.string_to_path("/user/hand/left/input/x/click")?),
@@ -50,6 +71,12 @@ impl Input {
                 xr::Binding::new(&toggle, instance.string_to_path("/user/hand/left/input/y/click")?),
                 xr::Binding::new(&toggle, instance.string_to_path("/user/hand/right/input/b/click")?),
             ];
+            if let Some(sticks) = &sticks {
+                bindings.extend([
+                    xr::Binding::new(&sticks[0], instance.string_to_path("/user/hand/left/input/thumbstick")?),
+                    xr::Binding::new(&sticks[1], instance.string_to_path("/user/hand/right/input/thumbstick")?),
+                ]);
+            }
             match instance.suggest_interaction_profile_bindings(instance.string_to_path(profile)?, &bindings) {
                 Ok(()) => bound = true,
                 Err(error) => log::info!("Experimental XR arms: profile {profile} unavailable: {error}"),
@@ -68,11 +95,13 @@ impl Input {
             grip,
             calibrate,
             toggle,
+            sticks,
             set,
             paths,
             pressed: [false; 2],
             armed: false,
             buttons: [0; 2],
+            axes: [None; 2],
         })
     }
 
@@ -84,6 +113,7 @@ impl Input {
         anchor: &Anchor,
         focused: bool,
     ) -> [GripState; 2] {
+        self.axes = [None; 2];
         if !focused || session.sync_actions(&[(&self.set).into()]).is_err() {
             self.armed = false;
             return [GripState::Unavailable; 2];
@@ -100,7 +130,7 @@ impl Input {
             self.pressed[i] = down;
         }
         self.armed = true;
-        std::array::from_fn(|i| match self.grip.is_active(session, self.paths[i]) {
+        let hands = std::array::from_fn(|i| match self.grip.is_active(session, self.paths[i]) {
             Ok(false) => GripState::Inactive,
             Err(_) => GripState::Unavailable,
             Ok(true) => match self.spaces[i].locate(local, time) {
@@ -109,7 +139,21 @@ impl Input {
                     .map_or(GripState::Untracked, GripState::Tracked),
                 Err(_) => GripState::Untracked,
             },
-        })
+        });
+        if let Some(sticks) = &self.sticks {
+            // A stick only counts while its controller is tracked, so a controller
+            // that was put down or lost cannot keep walking the avatar.
+            self.axes = std::array::from_fn(|i| {
+                if !matches!(hands[i], GripState::Tracked(_)) {
+                    return None;
+                }
+                let state = sticks[i].state(session, self.paths[i]).ok()?;
+                state
+                    .is_active
+                    .then_some(glam::Vec2::new(state.current_state.x, state.current_state.y))
+            });
+        }
+        hands
     }
 }
 
